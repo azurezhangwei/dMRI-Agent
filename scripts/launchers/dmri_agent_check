@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+QUIET=0
+REQUIRE_SLICER=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --quiet) QUIET=1; shift ;;
+    --require-slicer) REQUIRE_SLICER=1; shift ;;
+    -h|--help)
+      printf 'Usage: dmri-agent-check [--quiet] [--require-slicer]\n'
+      exit 0
+      ;;
+    *) printf 'Unknown argument: %s\n' "$1" >&2; exit 1 ;;
+  esac
+done
+
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+while [[ -L "$SCRIPT_PATH" ]]; do
+  SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
+  LINK_TARGET="$(readlink "$SCRIPT_PATH")"
+  if [[ "$LINK_TARGET" == /* ]]; then
+    SCRIPT_PATH="$LINK_TARGET"
+  else
+    SCRIPT_PATH="$SCRIPT_DIR/$LINK_TARGET"
+  fi
+done
+APP_DIR="$(cd -P "$(dirname "$SCRIPT_PATH")/../.." && pwd)"
+FAILURES=0
+report_ok() {
+  if [[ "$QUIET" == "0" ]]; then printf 'OK   %s\n' "$*"; fi
+}
+
+report_fail() {
+  printf 'FAIL %s\n' "$*" >&2
+  FAILURES=$((FAILURES + 1))
+}
+
+report_info() {
+  if [[ "$QUIET" == "0" ]]; then printf 'INFO %s\n' "$*"; fi
+}
+
+find_slicer() {
+  local candidate
+  for candidate in \
+    "${DMRI_SLICER_EXECUTABLE:-}" \
+    "/Applications/Slicer.app/Contents/MacOS/Slicer" \
+    "$HOME/Applications/Slicer.app/Contents/MacOS/Slicer"; do
+    if [[ -d "$candidate" && "$candidate" == *.app ]]; then
+      candidate="$candidate/Contents/MacOS/Slicer"
+    fi
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  command -v Slicer 2>/dev/null || return 1
+}
+
+if [[ -x "$APP_DIR/.venv/bin/python" ]]; then
+  PYTHON_BIN="$APP_DIR/.venv/bin/python"
+  if "$PYTHON_BIN" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
+    report_ok "Python $("$PYTHON_BIN" --version 2>&1)"
+  else
+    report_fail "Python must be 3.10 or newer"
+  fi
+  if "$PYTHON_BIN" -c 'import fastapi, uvicorn, langchain_core' >/dev/null 2>&1; then
+    report_ok "Python runtime dependencies"
+  else
+    report_fail "Python runtime dependencies are incomplete"
+  fi
+else
+  report_fail "Missing virtual environment: $APP_DIR/.venv"
+fi
+
+[[ -f "$APP_DIR/config/models.json" ]] \
+  && report_ok "Model profiles" \
+  || report_fail "Model profile configuration is missing"
+[[ -d "$APP_DIR/protocols" ]] \
+  && report_ok "Built-in Protocols" \
+  || report_fail "Built-in Protocols directory is missing"
+if [[ -x "$APP_DIR/scripts/launchers/dmri_agent_slicer" && \
+      -f "$APP_DIR/slicer_extension/startup.py" && \
+      -f "$APP_DIR/slicer_extension/DMRIAgentSlicer/DMRIAgentSlicer.py" ]]; then
+  report_ok "3D Slicer extension files"
+else
+  report_fail "3D Slicer extension or launcher is missing"
+fi
+SLICER_BIN="$(find_slicer || true)"
+if [[ -n "$SLICER_BIN" ]]; then
+  report_ok "3D Slicer $SLICER_BIN"
+elif [[ "$REQUIRE_SLICER" == "1" ]]; then
+  report_fail "3D Slicer was not found"
+else
+  report_info "3D Slicer was not found; install it before opening the plugin"
+fi
+
+if [[ "$FAILURES" -gt 0 ]]; then
+  printf 'dMRI-Agent self-check found %s problem(s).\n' "$FAILURES" >&2
+  exit 1
+fi
+printf 'dMRI-Agent installation is ready.\n'

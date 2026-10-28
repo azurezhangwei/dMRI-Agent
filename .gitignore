@@ -1,0 +1,51 @@
+# Local credentials and configuration
+.env
+.env.*
+config/secrets.json
+*.key
+*.pem
+*.p12
+.dmri-agent-install
+
+# Python environments and builds
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Runtime state and local data
+.cache/
+log/
+log_*/
+logs/
+*.sock
+*.pid
+data/
+workspace/
+*.dcm
+*.nii
+*.nii.gz
+*.nrrd
+*.nhdr
+*.tck
+*.trk
+*.ckpt
+*.pt
+*.pth
+
+# Development reports and local review notes
+audit_reports/
+*-results.xml
+
+# OS/editor files
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/

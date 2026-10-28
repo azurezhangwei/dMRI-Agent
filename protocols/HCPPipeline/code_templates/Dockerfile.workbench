@@ -1,0 +1,11 @@
+FROM dmri-agent-freesurfer:mrtrix
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends connectome-workbench && \
+    mkdir -p /opt/workbench/bin_linux64 /opt/conda/envs/wma/bin && \
+    ln -sf /usr/bin/wb_command /opt/workbench/bin_linux64/wb_command && \
+    ln -sf /usr/bin/wb_command /opt/conda/envs/wma/bin/wb_command && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV CARET7DIR=/opt/workbench/bin_linux64
+ENV PATH=/opt/freesurfer/bin:/opt/freesurfer/fsfast/bin:/opt/freesurfer/tktools:/opt/freesurfer/mni/bin:/opt/freesurfer/bin:/opt/dcm2niix:/opt/conda/bin:/opt/ants-2.6.3/bin/:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/workbench/bin_linux64

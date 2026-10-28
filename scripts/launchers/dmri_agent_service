@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: dmri_agent_service [options]
+
+Options:
+  --host <address>  Bind address. Default: 127.0.0.1.
+  --port <number>   Bind port. Default: 8765.
+  --python <path>   Python interpreter for the service.
+  -h, --help        Show this help message.
+EOF
+}
+
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+while [[ -L "$SCRIPT_PATH" ]]; do
+  SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
+  LINK_TARGET="$(readlink "$SCRIPT_PATH")"
+  if [[ "$LINK_TARGET" == /* ]]; then
+    SCRIPT_PATH="$LINK_TARGET"
+  else
+    SCRIPT_PATH="$SCRIPT_DIR/$LINK_TARGET"
+  fi
+done
+REPO_ROOT="$(cd -P "$(dirname "$SCRIPT_PATH")/../.." && pwd)"
+
+CUSTOM_PYTHON=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --host)
+      [[ $# -ge 2 ]] || { echo "Missing value for --host" >&2; exit 1; }
+      export DMRI_SERVICE_HOST="$2"
+      shift 2
+      ;;
+    --port)
+      [[ $# -ge 2 ]] || { echo "Missing value for --port" >&2; exit 1; }
+      export DMRI_SERVICE_PORT="$2"
+      shift 2
+      ;;
+    --python)
+      [[ $# -ge 2 ]] || { echo "Missing value for --python" >&2; exit 1; }
+      CUSTOM_PYTHON="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -n "$CUSTOM_PYTHON" ]]; then
+  PYTHON_BIN="$CUSTOM_PYTHON"
+elif [[ -n "${DMRI_AGENT_PYTHON:-}" ]]; then
+  PYTHON_BIN="$DMRI_AGENT_PYTHON"
+elif [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
+  PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
+elif [[ -x "$REPO_ROOT/dmri-agent-env/bin/python" ]]; then
+  PYTHON_BIN="$REPO_ROOT/dmri-agent-env/bin/python"
+else
+  PYTHON_BIN="python3"
+fi
+
+if [[ "$PYTHON_BIN" != /* ]]; then
+  PYTHON_BIN="$(command -v "$PYTHON_BIN")"
+fi
+export DMRI_AGENT_PYTHON="$PYTHON_BIN"
+export PATH="$(dirname "$PYTHON_BIN"):${PATH:-}"
+
+# Slicer exports its bundled Python home and module paths to child processes.
+# They are incompatible with the isolated Agent virtual environment (and may
+# even load a different Python standard library).  The service always runs
+# against its own environment and only needs the project root on PYTHONPATH.
+unset PYTHONHOME PYTHONSTARTUP PYTHONEXECUTABLE
+export PYTHONNOUSERSITE=1
+export PYTHONPATH="$REPO_ROOT"
+cd "$REPO_ROOT"
+if [[ "${DMRI_MANAGED_SERVICE:-}" == "1" ]]; then
+  trap '' HUP
+fi
+exec "$PYTHON_BIN" -m backend.service

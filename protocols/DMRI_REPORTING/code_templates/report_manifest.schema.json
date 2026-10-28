@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dmri-agent.local/schemas/report-manifest-1.0.0.json",
+  "title": "dMRI-Agent Evidence Report Manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "report_id",
+    "created_at",
+    "task",
+    "status",
+    "stages",
+    "outputs",
+    "qc",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "report_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "task": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["success", "partial", "failed", "not_run"] },
+    "protocols": { "type": "array", "items": { "type": "object" } },
+    "software": { "type": "array", "items": { "type": "object" } },
+    "inputs": { "type": "array", "items": { "type": "object" } },
+    "stages": { "type": "array", "items": { "$ref": "#/$defs/stage" } },
+    "outputs": { "type": "array", "items": { "type": "object" } },
+    "qc": { "type": "array", "items": { "type": "object" } },
+    "statistics": { "type": "array", "items": { "type": "object" } },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "evidence": { "type": "array", "items": { "type": "object" } }
+  },
+  "$defs": {
+    "stage": {
+      "type": "object",
+      "required": ["name", "status"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["success", "warning", "failed", "skipped", "not_run"] },
+        "summary": { "type": "string" },
+        "evidence": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "additionalProperties": true
+}

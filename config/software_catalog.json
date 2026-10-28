@@ -1,0 +1,331 @@
+{
+  "version": 1,
+  "managed_conda_env": "dmri-agent-tools",
+  "software": {
+    "dcm2niix": {
+      "label": "dcm2niix",
+      "category": "conversion",
+      "commands": [
+        {
+          "candidates": ["dcm2niix"],
+          "version_args": ["--version"],
+          "version_pattern": "\\bv\\d+\\.\\d+\\.\\d+\\b"
+        }
+      ],
+      "strategies": {
+        "darwin": [
+          {
+            "type": "homebrew",
+            "formula": "dcm2niix",
+            "source_url": "https://github.com/rordenlab/dcm2niix"
+          }
+        ],
+        "linux": [
+          {
+            "type": "manual",
+            "summary": "Use the official release binary or build instructions.",
+            "source_url": "https://github.com/rordenlab/dcm2niix"
+          }
+        ]
+      }
+    },
+    "pigz": {
+      "label": "pigz",
+      "category": "compression",
+      "commands": [
+        {
+          "candidates": ["pigz"],
+          "version_args": ["--version"],
+          "version_pattern": "\\bpigz\\s+(\\d+(?:\\.\\d+)+)\\b"
+        }
+      ],
+      "strategies": {
+        "darwin": [
+          {
+            "type": "homebrew",
+            "formula": "pigz",
+            "source_url": "https://zlib.net/pigz/"
+          }
+        ],
+        "linux": [
+          {
+            "type": "manual",
+            "summary": "Install pigz with the system package manager or from the official source.",
+            "source_url": "https://zlib.net/pigz/"
+          }
+        ]
+      }
+    },
+    "bids_validator": {
+      "label": "BIDS Validator",
+      "category": "validation",
+      "commands": [
+        {
+          "candidates": ["bids-validator-deno"],
+          "version_args": ["--version"],
+          "version_pattern": "\\b2\\.4\\.1\\b"
+        }
+      ],
+      "strategies": {
+        "darwin": [
+          {
+            "type": "python_venv",
+            "packages": ["bids-validator-deno==2.4.1"],
+            "source_url": "https://github.com/bids-standard/bids-validator"
+          }
+        ],
+        "linux": [
+          {
+            "type": "python_venv",
+            "packages": ["bids-validator-deno==2.4.1"],
+            "source_url": "https://github.com/bids-standard/bids-validator"
+          }
+        ],
+        "win32": [
+          {
+            "type": "python_venv",
+            "packages": ["bids-validator-deno==2.4.1"],
+            "source_url": "https://github.com/bids-standard/bids-validator"
+          }
+        ]
+      }
+    },
+    "mrtrix3": {
+      "label": "MRtrix3",
+      "category": "diffusion",
+      "commands": [
+        {"candidates": ["mrconvert"], "version_args": ["-version"]},
+        {"candidates": ["dwi2tensor"], "version_args": ["-version"]},
+        {"candidates": ["tckgen"], "version_args": ["-version"]}
+      ],
+      "strategies": {
+        "darwin": [
+          {
+            "type": "homebrew",
+            "tap": "MRtrix3/mrtrix3",
+            "formula": "mrtrix3",
+            "source_url": "https://mrtrix.readthedocs.io/en/latest/installation/mac_install.html"
+          }
+        ],
+        "linux": [
+          {
+            "type": "manual",
+            "summary": "Build from the official source following the Linux installation guide.",
+            "source_url": "https://mrtrix.readthedocs.io/en/latest/installation/build_from_source.html"
+          }
+        ]
+      }
+    },
+    "dipy": {
+      "label": "DIPY",
+      "category": "diffusion",
+      "commands": [
+        {"candidates": ["dipy_info"], "version_args": ["--version"]}
+      ],
+      "python_modules": ["dipy"],
+      "strategies": {
+        "darwin": [
+          {
+            "type": "conda",
+            "channel": "conda-forge",
+            "packages": ["dipy"],
+            "source_url": "https://docs.dipy.org/stable/user_guide/installation.html"
+          }
+        ],
+        "linux": [
+          {
+            "type": "conda",
+            "channel": "conda-forge",
+            "packages": ["dipy"],
+            "source_url": "https://docs.dipy.org/stable/user_guide/installation.html"
+          }
+        ],
+        "win32": [
+          {
+            "type": "conda",
+            "channel": "conda-forge",
+            "packages": ["dipy"],
+            "source_url": "https://docs.dipy.org/stable/user_guide/installation.html"
+          }
+        ]
+      }
+    },
+    "fsl": {
+      "label": "FSL",
+      "category": "neuroimaging",
+      "commands": [
+        {"candidates": ["fslversion"], "version_args": []},
+        {"candidates": ["dtifit"], "version_args": ["--help"]},
+        {"candidates": ["eddy", "eddy_openmp"], "version_args": ["--version"]},
+        {"candidates": ["tbss_1_preproc"], "version_args": []}
+      ],
+      "strategies": {
+        "darwin": [
+          {
+            "type": "official_installer",
+            "summary": "Install as the current user into ~/fsl with the official getfsl.sh installer; do not use sudo for a single-user install.",
+            "source_url": "https://fsl.fmrib.ox.ac.uk/fsl/docs/install/macos.html"
+          }
+        ],
+        "linux": [
+          {
+            "type": "official_installer",
+            "summary": "Use the official getfsl.sh installer in a user-writable prefix.",
+            "source_url": "https://fsl.fmrib.ox.ac.uk/fsl/docs/install/linux.html"
+          }
+        ]
+      }
+    },
+    "freesurfer": {
+      "label": "FreeSurfer",
+      "category": "neuroimaging",
+      "commands": [
+        {"candidates": ["recon-all"], "version_args": ["-version"]},
+        {"candidates": ["mri_convert"], "version_args": ["--version"]}
+      ],
+      "strategies": {
+        "darwin": [
+          {
+            "type": "official_installer",
+            "summary": "Use the architecture-matched official macOS package and configure a FreeSurfer license.",
+            "source_url": "https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall"
+          }
+        ],
+        "linux": [
+          {
+            "type": "official_installer",
+            "summary": "Use the official Linux package and configure a FreeSurfer license.",
+            "source_url": "https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall"
+          }
+        ]
+      }
+    },
+    "ants": {
+      "label": "ANTs",
+      "category": "registration",
+      "commands": [
+        {"candidates": ["antsRegistration"], "version_args": ["--version"]},
+        {"candidates": ["antsApplyTransforms"], "version_args": ["--version"]}
+      ],
+      "strategies": {
+        "darwin": [
+          {
+            "type": "manual",
+            "summary": "Use an official ANTs release or build from source after checking architecture support.",
+            "source_url": "https://github.com/ANTsX/ANTs"
+          }
+        ],
+        "linux": [
+          {
+            "type": "manual",
+            "summary": "Use an official ANTs release or build from source.",
+            "source_url": "https://github.com/ANTsX/ANTs"
+          }
+        ]
+      }
+    },
+    "workbench": {
+      "label": "Connectome Workbench",
+      "category": "connectome",
+      "commands": [
+        {"candidates": ["wb_command"], "version_args": ["-version"]}
+      ],
+      "strategies": {
+        "darwin": [
+          {
+            "type": "manual",
+            "summary": "Install the official macOS distribution and add its bin directory to PATH.",
+            "source_url": "https://www.humanconnectome.org/software/get-connectome-workbench"
+          }
+        ],
+        "linux": [
+          {
+            "type": "manual",
+            "summary": "Install the official Linux distribution and add its bin directory to PATH.",
+            "source_url": "https://www.humanconnectome.org/software/get-connectome-workbench"
+          }
+        ]
+      }
+    },
+    "slicer": {
+      "label": "3D Slicer",
+      "category": "visualization",
+      "commands": [
+        {
+          "candidates": ["Slicer", "/Applications/Slicer.app/Contents/MacOS/Slicer"],
+          "version_args": ["--version"]
+        }
+      ],
+      "strategies": {
+        "darwin": [
+          {
+            "type": "manual",
+            "summary": "Install the official macOS application bundle.",
+            "source_url": "https://download.slicer.org/"
+          }
+        ],
+        "linux": [
+          {
+            "type": "manual",
+            "summary": "Install the official Linux archive.",
+            "source_url": "https://download.slicer.org/"
+          }
+        ],
+        "win32": [
+          {
+            "type": "manual",
+            "summary": "Install the official Windows package.",
+            "source_url": "https://download.slicer.org/"
+          }
+        ]
+      }
+    },
+    "afni": {
+      "label": "AFNI",
+      "category": "neuroimaging",
+      "commands": [
+        {"candidates": ["afni"], "version_args": ["-ver"]},
+        {"candidates": ["3dinfo"], "version_args": ["-VER"]}
+      ],
+      "strategies": {
+        "darwin": [
+          {
+            "type": "manual",
+            "summary": "Follow AFNI's current macOS installation and system-check instructions.",
+            "source_url": "https://afni.nimh.nih.gov/pub/dist/doc/htmldoc/background_install/install_instructs/index.html"
+          }
+        ],
+        "linux": [
+          {
+            "type": "manual",
+            "summary": "Follow AFNI's distribution-specific installation instructions.",
+            "source_url": "https://afni.nimh.nih.gov/pub/dist/doc/htmldoc/background_install/install_instructs/index.html"
+          }
+        ]
+      }
+    },
+    "container_runtime": {
+      "label": "Container runtime",
+      "category": "runtime",
+      "commands": [
+        {"candidates": ["docker", "podman"], "version_args": ["--version"]}
+      ],
+      "strategies": {
+        "darwin": [
+          {
+            "type": "manual",
+            "summary": "Install Docker Desktop or Podman Desktop only when a Linux-only tool requires it.",
+            "source_url": "https://docs.docker.com/desktop/setup/install/mac-install/"
+          }
+        ],
+        "linux": [
+          {
+            "type": "manual",
+            "summary": "Install Docker Engine or Podman using the operating-system package manager.",
+            "source_url": "https://docs.docker.com/engine/install/"
+          }
+        ]
+      }
+    }
+  }
+}

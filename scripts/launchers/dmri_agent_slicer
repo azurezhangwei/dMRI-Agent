@@ -1,0 +1,275 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: dmri-agent-slicer [options]
+
+Open 3D Slicer with the dMRI-Agent extension and its backend service.
+
+Options:
+  --workspace <dir>      Data workspace. Default: installed/dedicated workspace.
+  --slicer <path>        Slicer executable or Slicer.app path.
+  --backend-port <num>   Agent service port. Default: 8765.
+  --scene-port <num>     Loopback Slicer scene API port. Default: 2016.
+  --profile <id>         Model profile for new sessions.
+  --test-script <path>   Run a Slicer GUI acceptance script after startup.
+  -h, --help             Show this help message.
+
+The scene API is bound to 127.0.0.1 and stops when this Slicer process exits.
+EOF
+}
+
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+while [[ -L "$SCRIPT_PATH" ]]; do
+  SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
+  LINK_TARGET="$(readlink "$SCRIPT_PATH")"
+  if [[ "$LINK_TARGET" == /* ]]; then
+    SCRIPT_PATH="$LINK_TARGET"
+  else
+    SCRIPT_PATH="$SCRIPT_DIR/$LINK_TARGET"
+  fi
+done
+APP_DIR="$(cd -P "$(dirname "$SCRIPT_PATH")/../.." && pwd)"
+
+WORKSPACE=""
+SLICER_PATH="${DMRI_SLICER_EXECUTABLE:-}"
+BACKEND_PORT="8765"
+BACKEND_PORT_EXPLICIT=0
+SCENE_PORT="2016"
+MODEL_PROFILE=""
+TEST_SCRIPT=""
+
+require_value() {
+  if [[ $# -lt 2 || -z "${2:-}" ]]; then
+    printf 'Missing value for %s\n' "$1" >&2
+    exit 1
+  fi
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --workspace) require_value "$@"; WORKSPACE="$2"; shift 2 ;;
+    --slicer) require_value "$@"; SLICER_PATH="$2"; shift 2 ;;
+    --backend-port) require_value "$@"; BACKEND_PORT="$2"; BACKEND_PORT_EXPLICIT=1; shift 2 ;;
+    --scene-port) require_value "$@"; SCENE_PORT="$2"; shift 2 ;;
+    --profile) require_value "$@"; MODEL_PROFILE="$2"; shift 2 ;;
+    --test-script) require_value "$@"; TEST_SCRIPT="$2"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) printf 'Unknown argument: %s\n' "$1" >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+if [[ -n "$WORKSPACE" ]]; then
+  REQUESTED_WORKSPACE="$WORKSPACE"
+  WORKSPACE="$(cd "$REQUESTED_WORKSPACE" 2>/dev/null && pwd)" || {
+    printf 'Workspace not found: %s\n' "$REQUESTED_WORKSPACE" >&2
+    exit 1
+  }
+fi
+
+if [[ -n "$TEST_SCRIPT" ]]; then
+  REQUESTED_TEST_SCRIPT="$TEST_SCRIPT"
+  TEST_SCRIPT_DIR="$(cd "$(dirname "$REQUESTED_TEST_SCRIPT")" 2>/dev/null && pwd)" || {
+    printf 'Test script not found: %s\n' "$REQUESTED_TEST_SCRIPT" >&2
+    exit 1
+  }
+  TEST_SCRIPT="$TEST_SCRIPT_DIR/$(basename "$REQUESTED_TEST_SCRIPT")"
+  [[ -f "$TEST_SCRIPT" ]] || {
+    printf 'Test script not found: %s\n' "$REQUESTED_TEST_SCRIPT" >&2
+    exit 1
+  }
+fi
+case "$BACKEND_PORT:$SCENE_PORT" in
+  *[!0-9:]*|:*) printf 'Ports must be positive integers.\n' >&2; exit 1 ;;
+esac
+(( BACKEND_PORT > 0 && BACKEND_PORT < 65536 && SCENE_PORT > 0 && SCENE_PORT < 65536 )) || {
+  printf 'Ports must be between 1 and 65535.\n' >&2
+  exit 1
+}
+[[ "$BACKEND_PORT" != "$SCENE_PORT" ]] || {
+  printf 'Backend and Slicer scene ports must be different.\n' >&2
+  exit 1
+}
+[[ -x "$APP_DIR/.venv/bin/python" ]] || {
+  printf 'Missing Python environment. Run install.sh first.\n' >&2
+  exit 1
+}
+[[ -f "$APP_DIR/slicer_extension/startup.py" ]] || {
+  printf 'Bundled Slicer startup script is missing.\n' >&2
+  exit 1
+}
+
+resolve_slicer() {
+  local candidate="$1"
+  if [[ -n "$candidate" ]]; then
+    if [[ -d "$candidate" && "$candidate" == *.app ]]; then
+      candidate="$candidate/Contents/MacOS/Slicer"
+    fi
+    [[ -x "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
+    return 1
+  fi
+  for candidate in \
+    "/Applications/Slicer.app/Contents/MacOS/Slicer" \
+    "$HOME/Applications/Slicer.app/Contents/MacOS/Slicer"; do
+    [[ -x "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
+  done
+  command -v Slicer 2>/dev/null || return 1
+}
+
+SLICER_BIN="$(resolve_slicer "$SLICER_PATH" || true)"
+[[ -n "$SLICER_BIN" ]] || {
+  printf '3D Slicer was not found. Install Slicer 5.6 or newer, or pass --slicer.\n' >&2
+  exit 1
+}
+
+PYTHON_BIN="$APP_DIR/.venv/bin/python"
+BACKEND_URL="http://127.0.0.1:$BACKEND_PORT"
+source "$APP_DIR/backend/service/launcher_lifecycle.sh"
+if [[ "$BACKEND_PORT_EXPLICIT" == "0" ]]; then
+  BACKEND_PORT="$(PYTHONPATH="$APP_DIR${PYTHONPATH:+:$PYTHONPATH}" \
+    "$PYTHON_BIN" -m backend.service.runtime_broker backend-port)" || exit 1
+  BACKEND_URL="http://127.0.0.1:$BACKEND_PORT"
+fi
+[[ "$BACKEND_PORT" != "$SCENE_PORT" ]] || {
+  printf 'Backend and Slicer scene ports must be different.\n' >&2
+  exit 1
+}
+if [[ -z "$WORKSPACE" ]]; then
+  WORKSPACE="$(dmri_resolve_default_workspace)" || exit 1
+fi
+
+backend_ready() {
+  "$PYTHON_BIN" - "$BACKEND_URL/v1/models" <<'PY' >/dev/null 2>&1
+import json
+import os
+import sys
+import urllib.request
+
+request = urllib.request.Request(sys.argv[1])
+token = os.environ.get("DMRI_SERVICE_TOKEN", "").strip()
+if token:
+    request.add_header("Authorization", f"Bearer {token}")
+opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+with opener.open(request, timeout=0.5) as response:
+    payload = json.load(response)
+if "profiles" not in payload:
+    raise SystemExit(1)
+PY
+}
+
+scene_port_available() {
+  "$PYTHON_BIN" - "$SCENE_PORT" <<'PY' >/dev/null 2>&1
+import socket
+import sys
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", int(sys.argv[1])))
+PY
+}
+
+BACKEND_PID=""
+terminate_job() {
+  local pid="$1"
+  [[ -n "$pid" ]] || return 0
+  if ! kill -0 "$pid" >/dev/null 2>&1; then
+    wait "$pid" 2>/dev/null || true
+    return 0
+  fi
+  kill -TERM -- "-$pid" >/dev/null 2>&1 || kill -TERM "$pid" >/dev/null 2>&1 || true
+  local attempt
+  for attempt in $(seq 1 30); do
+    if ! kill -0 "$pid" >/dev/null 2>&1; then
+      wait "$pid" 2>/dev/null || true
+      return 0
+    fi
+    sleep 0.1
+  done
+  kill -KILL -- "-$pid" >/dev/null 2>&1 || kill -KILL "$pid" >/dev/null 2>&1 || true
+  wait "$pid" 2>/dev/null || true
+}
+
+cleanup() {
+  local status=$?
+  trap - EXIT INT TERM
+  dmri_release_service_lease slicer
+  dmri_cleanup_unpublished_service
+  if [[ -n "$BACKEND_PID" ]] && ! kill -0 "$BACKEND_PID" >/dev/null 2>&1; then
+    wait "$BACKEND_PID" 2>/dev/null || true
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+scene_port_available || {
+  printf 'Slicer scene API port is already in use: 127.0.0.1:%s\n' "$SCENE_PORT" >&2
+  exit 1
+}
+
+export MRI_AGENT_API_BASE="$BACKEND_URL"
+export MRI_AGENT_WORKSPACE="$WORKSPACE"
+export MRI_AGENT_FILE_ROOTS="$WORKSPACE"
+export DMRI_DEFAULT_WORKSPACE="$WORKSPACE"
+export DMRI_SLICER_SCENE_PORT="$SCENE_PORT"
+export MCP_SLICER_WEB_SERVER_URL="http://127.0.0.1:$SCENE_PORT/slicer"
+if [[ -n "$MODEL_PROFILE" ]]; then export DMRI_MODEL_PROFILE="$MODEL_PROFILE"; fi
+if [[ -n "$TEST_SCRIPT" ]]; then export DMRI_SLICER_TEST_SCRIPT="$TEST_SCRIPT"; fi
+
+dmri_prepare_service slicer || {
+  printf 'Unable to coordinate the shared dMRI backend at %s\n' "$BACKEND_URL" >&2
+  exit 1
+}
+if [[ "$DMRI_BROKER_ACTION" == "wait" ]]; then
+  for _ in $(seq 1 240); do
+    sleep 0.25
+    dmri_prepare_service slicer || exit 1
+    [[ "$DMRI_BROKER_ACTION" != "wait" ]] && break
+  done
+  [[ "$DMRI_BROKER_ACTION" != "wait" ]] || {
+    printf 'Timed out waiting for another frontend to start the backend.\n' >&2
+    exit 1
+  }
+fi
+
+if [[ "$DMRI_BROKER_ACTION" == "reuse" || "$DMRI_BROKER_ACTION" == "external" ]]; then
+  printf 'Using existing dMRI-Agent backend at %s\n' "$BACKEND_URL"
+elif [[ "$DMRI_BROKER_ACTION" == "start" ]]; then
+  printf 'Starting dMRI-Agent backend at %s\n' "$BACKEND_URL"
+  SERVICE_LOG_DIR="${DMRI_STATE_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/dmri-agent}/service"
+  mkdir -p "$SERVICE_LOG_DIR"
+  SERVICE_LOG="$SERVICE_LOG_DIR/backend-$BACKEND_PORT.log"
+  DMRI_MANAGED_SERVICE=1 \
+    DMRI_SERVICE_BOOTSTRAP_LEASE_ID="$DMRI_SERVICE_LEASE_ID" \
+    DMRI_SERVICE_BOOTSTRAP_LEASE_CLIENT="slicer" \
+    MCP_SLICER_WEB_SERVER_URL="$DMRI_BROKER_SLICER_SCENE_URL" \
+    DMRI_SERVICE_TOKEN="$DMRI_SERVICE_TOKEN" nohup \
+    "$APP_DIR/scripts/launchers/dmri_agent_service" --host 127.0.0.1 --port "$BACKEND_PORT" \
+    >>"$SERVICE_LOG" 2>&1 &
+  BACKEND_PID=$!
+  printf 'Backend log: %s\n' "$SERVICE_LOG"
+  ready=0
+  for _ in $(seq 1 80); do
+    if backend_ready; then ready=1; break; fi
+    sleep 0.25
+  done
+  [[ "$ready" == "1" ]] || { printf 'Backend did not become ready at %s\n' "$BACKEND_URL" >&2; exit 1; }
+  dmri_publish_service || {
+    printf 'Backend started but could not publish its private runtime descriptor.\n' >&2
+    exit 1
+  }
+fi
+
+if ! dmri_acquire_service_lease slicer; then
+  printf 'Backend at %s does not support shared frontend lifecycle.\n' "$BACKEND_URL" >&2
+  exit 1
+fi
+
+printf 'Opening dMRI-Agent in 3D Slicer\n'
+printf 'Workspace: %s\n' "$WORKSPACE"
+printf 'Slicer: %s\n' "$SLICER_BIN"
+"$SLICER_BIN" \
+  --no-splash \
+  --additional-module-paths "$APP_DIR/slicer_extension/DMRIAgentSlicer" \
+  --python-script "$APP_DIR/slicer_extension/startup.py"

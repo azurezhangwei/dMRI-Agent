@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "active_profile": "deepseek",
+  "profiles": {
+    "deepseek": {
+      "label": "DeepSeek Official",
+      "provider": "deepseek",
+      "api_style": "openai_compatible",
+      "base_url": "https://api.deepseek.com",
+      "model": "deepseek-flash",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "context_window_tokens": 262144,
+      "temperature": 0.2,
+      "reasoning_effort": "high",
+      "extra_body": {
+        "thinking": {
+          "type": "enabled"
+        }
+      },
+      "cache_strategy": "provider_automatic",
+      "use_responses_api": false,
+      "use_previous_response_id": false
+    },
+    "openai": {
+      "label": "OpenAI Official",
+      "provider": "openai",
+      "api_style": "openai_compatible",
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-6.1-sol",
+      "api_key_env": "OPENAI_API_KEY",
+      "context_window_tokens": 262144,
+      "temperature": null,
+      "reasoning_effort": "medium",
+      "cache_strategy": "provider_automatic",
+      "use_responses_api": true,
+      "use_previous_response_id": false
+    },
+    "qwen": {
+      "label": "Qwen Official \u00b7 Beijing",
+      "provider": "dashscope",
+      "api_style": "openai_compatible",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "model": "qwen3.8-flash",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "context_window_tokens": 262144,
+      "temperature": null,
+      "extra_body": {
+        "enable_thinking": true
+      },
+      "cache_strategy": "provider_automatic",
+      "use_responses_api": false,
+      "use_previous_response_id": false
+    },
+    "claude": {
+      "label": "Anthropic Claude",
+      "provider": "anthropic",
+      "api_style": "anthropic_native",
+      "base_url": "https://api.anthropic.com",
+      "model": "claude-sonnet-5-5",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "context_window_tokens": 262144,
+      "temperature": null,
+      "max_tokens": 16000,
+      "anthropic_thinking": "adaptive",
+      "cache_strategy": "anthropic_auto",
+      "cache_ttl": "5m",
+      "use_responses_api": false,
+      "use_previous_response_id": false
+    }
+  }
+}

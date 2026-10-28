@@ -1,0 +1,59 @@
+name: Product package and runtime checks
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check source and build product package
+        run: |
+          python scripts/check_repository.py
+          python -m pip install ruff==0.17.3
+          ruff check backend slicer_extension scripts
+          bash scripts/build_release.sh --output product-package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dmri-agent-package
+          path: product-package/
+  platforms:
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: dmri-agent-package
+          path: product-package
+      - name: Verify the unified ZIP
+        shell: bash
+        run: |
+          version=$(cat VERSION)
+          python scripts/verify_release.py "product-package/dmri-agent-$version.zip" --extract-to extracted-package --revision '${{ github.sha }}'
+      - name: Check macOS or Linux installer entrypoint
+        if: runner.os != 'Windows'
+        run: bash install.sh --platform-info
+      - name: Check Windows installer entrypoint
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -PlatformInfo
+      - name: Install locked dependencies and import runtime
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r backend/requirements.lock.txt
+          python -c "import backend.agent_server, backend.executor, backend.service.api; from backend.protocol_registry import iter_protocol_entries; assert len(iter_protocol_entries()) == 11"

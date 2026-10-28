@@ -1,0 +1,11 @@
+# Direct runtime dependencies. Regenerate requirements.lock.txt with hashes;
+# installers consume that lock file, not this input.
+langchain-openai
+langchain-anthropic
+langchain-core
+python-dotenv
+httpx
+fastapi
+uvicorn
+requests
+pydicom==3.0.2

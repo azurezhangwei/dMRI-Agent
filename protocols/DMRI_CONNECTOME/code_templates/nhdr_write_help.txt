@@ -1,0 +1,16 @@
+nhdr_write.py helper (from your doc)
+
+usage: nhdr_write.py [-h] --nifti NIFTI [--bval BVAL] [--bvec BVEC] [--nhdr NHDR]
+
+NIFTI to NHDR conversion tool setting byteskip = -1
+
+optional arguments:
+  -h, --help     show this help message and exit
+  --nifti NIFTI  nifti file
+  --bval BVAL    bval file
+  --bvec BVEC    bvec file
+  --nhdr NHDR    output nhdr file, nifti and nhdr should be in the same directory
+
+Note:
+- NHDR is a header; image data remains in the original .nii.gz.
+- NHDR must be placed alongside the referenced data.

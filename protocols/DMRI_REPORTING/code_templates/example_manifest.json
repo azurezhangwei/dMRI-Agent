@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0.0",
+  "report_id": "dmri-report-smoke-001",
+  "created_at": "2026-07-11T00:00:00Z",
+  "task": "Validate evidence-based dMRI report rendering",
+  "status": "success",
+  "protocols": [
+    { "id": "DMRI_REPORTING", "version": "1.0.0" }
+  ],
+  "software": [
+    { "name": "python", "version": "3.12" }
+  ],
+  "inputs": [
+    { "id": "synthetic-fixture", "kind": "synthetic" }
+  ],
+  "stages": [
+    {
+      "name": "manifest validation",
+      "status": "success",
+      "summary": "Required evidence fields are present.",
+      "evidence": ["code_templates/example_manifest.json"]
+    }
+  ],
+  "outputs": [
+    { "name": "report", "path": "/tmp/dmri-report-smoke.md", "status": "expected" }
+  ],
+  "qc": [
+    { "name": "report evidence audit", "status": "pass", "detail": "No unsupported claims." }
+  ],
+  "statistics": [],
+  "limitations": [
+    "Synthetic fixture only; no biological interpretation is permitted."
+  ],
+  "evidence": [
+    { "kind": "manifest", "path": "code_templates/example_manifest.json" }
+  ]
+}
